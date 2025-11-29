@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useStealthStore } from './context/StealthContext';
 import Calculator from './components/Calculator';
 import Dashboard from './components/Dashboard';
+import Layout from './components/Layout';
 import { AnimatePresence, motion } from 'framer-motion';
 
 function App() {
@@ -37,7 +38,9 @@ function App() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <Dashboard />
+                    <Layout>
+                        <Dashboard />
+                    </Layout>
                 </motion.div>
             )}
         </AnimatePresence>

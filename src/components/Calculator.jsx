@@ -7,7 +7,7 @@ const Calculator = () => {
     const unlockApp = useStealthStore((state) => state.unlockApp);
 
     const handlePress = (val) => {
-        if (val === 'C') {
+        if (val === 'AC') {
             setDisplay('0');
         } else if (val === '=') {
             // THE LOCK: Check for PIN '1616'
@@ -28,39 +28,38 @@ const Calculator = () => {
     };
 
     const buttons = [
-        '7', '8', '9', '/',
-        '4', '5', '6', '*',
-        '1', '2', '3', '-',
-        'C', '0', '=', '+'
+        { label: 'AC', type: 'gray' }, { label: '+/-', type: 'gray' }, { label: '%', type: 'gray' }, { label: '/', type: 'orange' },
+        { label: '7', type: 'dark' }, { label: '8', type: 'dark' }, { label: '9', type: 'dark' }, { label: '*', type: 'orange' },
+        { label: '4', type: 'dark' }, { label: '5', type: 'dark' }, { label: '6', type: 'dark' }, { label: '-', type: 'orange' },
+        { label: '1', type: 'dark' }, { label: '2', type: 'dark' }, { label: '3', type: 'dark' }, { label: '+', type: 'orange' },
+        { label: '0', type: 'dark-wide' }, { label: '.', type: 'dark' }, { label: '=', type: 'orange' }
     ];
 
     return (
-        <div className="flex flex-col items-center justify-center h-screen bg-gray-900 text-white font-mono">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="w-80 bg-gray-800 p-6 rounded-2xl shadow-2xl"
-            >
-                <div className="mb-6 p-4 bg-gray-700 rounded-lg text-right text-3xl overflow-hidden">
-                    {display}
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                    {buttons.map((btn) => (
-                        <button
-                            key={btn}
-                            onClick={() => handlePress(btn)}
-                            className={`p-4 rounded-full text-xl font-bold transition-colors ${btn === '=' ? 'bg-orange-500 hover:bg-orange-600' :
-                                    btn === 'C' ? 'bg-red-500 hover:bg-red-600' :
-                                        ['/', '*', '-', '+'].includes(btn) ? 'bg-blue-500 hover:bg-blue-600' :
-                                            'bg-gray-600 hover:bg-gray-500'
-                                }`}
-                        >
-                            {btn}
-                        </button>
-                    ))}
-                </div>
-            </motion.div>
-            <p className="mt-8 text-gray-600 text-xs">Scientific Calculator v1.0</p>
+        <div className="flex flex-col items-center justify-end h-screen bg-black text-white pb-12">
+            {/* Display */}
+            <div className="w-full max-w-xs px-4 mb-4 text-right">
+                <span className="text-6xl font-light">{display}</span>
+            </div>
+
+            {/* Buttons Grid */}
+            <div className="grid grid-cols-4 gap-3 max-w-xs">
+                {buttons.map((btn) => (
+                    <button
+                        key={btn.label}
+                        onClick={() => handlePress(btn.label)}
+                        className={`
+              flex items-center justify-center text-2xl font-medium rounded-full transition-opacity active:opacity-70
+              ${btn.type === 'gray' ? 'bg-gray-400 text-black w-16 h-16' : ''}
+              ${btn.type === 'orange' ? 'bg-orange-500 text-white w-16 h-16' : ''}
+              ${btn.type === 'dark' ? 'bg-gray-800 text-white w-16 h-16' : ''}
+              ${btn.type === 'dark-wide' ? 'bg-gray-800 text-white w-36 h-16 col-span-2 pl-6 justify-start' : ''}
+            `}
+                    >
+                        {btn.label}
+                    </button>
+                ))}
+            </div>
         </div>
     );
 };
