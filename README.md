@@ -26,5 +26,4 @@ Kinga ("Protection" in Swahili) is a **PWA (Progressive Web App)** that acts as 
 3.  **Offline Learning:** Safety guides available without internet.
 
 ## 🏃‍♀️ How to Run
-1. `npm install`
-2. `npm start`
+1. `npm run build' 
