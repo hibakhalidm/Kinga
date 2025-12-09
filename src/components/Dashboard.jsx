@@ -65,7 +65,7 @@ const OFFLINE_MODULES = [
 
 const Dashboard = () => {
     usePanic(); // Universal Panic Switch (Shake/Double ESC)
-    const { toggleStealthMode } = useStealthStore();
+    const { toggleStealthMode, isStealthMode } = useStealthStore();
     const [activeTab, setActiveTab] = useState('home');
 
     // Logic/Pulse State
@@ -305,9 +305,54 @@ const Dashboard = () => {
                     {/* --- SETTINGS TAB --- */}
                     {activeTab === 'settings' && (
                         <motion.div key="settings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <div className="text-center py-20 text-gray-400">
-                                <Lock size={48} className="mx-auto mb-4 opacity-50" />
-                                <p>Settings & Disguise Control</p>
+                            <div className="mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
+                                <p className="text-sm text-gray-500">Control your safety & privacy.</p>
+                            </div>
+
+                            {/* STEALTH CONTROL */}
+                            <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 mb-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-gray-100 p-2 rounded-full text-gray-600">
+                                            <Lock size={20} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-800 text-sm">Calculator Disguise</h3>
+                                            <p className="text-xs text-gray-500">Open app as a calculator.</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={toggleStealthMode}
+                                        className={`w-12 h-7 rounded-full transition-colors relative ${isStealthMode ? 'bg-rose-500' : 'bg-gray-200'}`}
+                                    >
+                                        <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-transform ${isStealthMode ? 'left-6' : 'left-1'}`} />
+                                    </button>
+                                </div>
+                                <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 border border-gray-100">
+                                    <strong>Tip:</strong> When enabled, type <span className="font-mono bg-white px-1 rounded border">1616=</span> to unlock the app.
+                                </div>
+                            </div>
+
+                            {/* ADMIN VIEW (HACKATHON DEMO) */}
+                            <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-2xl">
+                                <h3 className="font-bold text-indigo-900 text-sm mb-3 flex items-center gap-2">
+                                    <Shield size={16} /> Admin Insight (Hackathon View)
+                                </h3>
+                                <p className="text-xs text-indigo-700 mb-4 leading-relaxed">
+                                    Admins can see real-time community safety trends based on the "Pulse" engine data.
+                                </p>
+
+                                <div className="space-y-2">
+                                    {COMMUNITY_TRENDS.map((trend, idx) => (
+                                        <div key={idx} className="bg-white p-3 rounded-lg text-xs border border-indigo-100 shadow-sm flex items-start gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 shrink-0 animate-pulse" />
+                                            <div>
+                                                <span className="font-bold text-gray-800">{trend.category}:</span> {trend.alert}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </motion.div>
                     )}
