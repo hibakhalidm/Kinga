@@ -1,21 +1,60 @@
 import React, { useState } from 'react';
 import { useStealthStore } from '../context/StealthContext';
-import { motion } from 'framer-motion';
+import { useAuth } from '../context/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Calculator = () => {
     const [display, setDisplay] = useState('0');
-    const unlockApp = useStealthStore((state) => state.unlockApp);
+    const { unlockApp } = useStealthStore();
+    const { user, profile, signUpAnonymously, loading } = useAuth();
+    const [setupState, setSetupState] = useState('init'); // 'init', 'confirm'
+    const [tempPin, setTempPin] = useState(null);
 
-    const handlePress = (val) => {
+    const handlePress = async (val) => {
+        if (loading) return;
+
         if (val === 'AC') {
             setDisplay('0');
         } else if (val === '=') {
-            // THE LOCK: Check for PIN '1616'
-            if (display === '1616') {
+            // === SCENARIO 1: NEW USER (SETUP MODE) ===
+            if (!profile && !user) {
+                if (display.length < 4) {
+                    setDisplay('Err: Len < 4');
+                    setTimeout(() => setDisplay('0'), 1000);
+                    return;
+                }
+
+                if (setupState === 'init') {
+                    // First entry of new PIN
+                    setTempPin(display);
+                    setSetupState('confirm');
+                    setDisplay('Confirm');
+                    setTimeout(() => setDisplay('0'), 1000);
+                } else if (setupState === 'confirm') {
+                    // Confirmation
+                    if (display === tempPin) {
+                        setDisplay('Creating...');
+                        await signUpAnonymously(display);
+                        setDisplay('Welcome');
+                        setTimeout(() => unlockApp(), 1000); // Unlock after successful sign up
+                    } else {
+                        setDisplay('Err: Match');
+                        setSetupState('init');
+                        setTempPin(null);
+                        setTimeout(() => setDisplay('0'), 1000);
+                    }
+                }
+                return;
+            }
+
+            // === SCENARIO 2: EXISTING USER (LOCK MODE) ===
+            const storedPin = profile?.pin_code || '1616'; // Fallback only if strictly necessary
+
+            if (display === storedPin || display === '1616') { // Keeping master unlock for demo
                 unlockApp();
             } else {
                 try {
-                    // Basic evaluation for realism
+                    // Real calculator logic
                     // eslint-disable-next-line no-eval
                     setDisplay(eval(display).toString());
                 } catch {
@@ -23,7 +62,12 @@ const Calculator = () => {
                 }
             }
         } else {
-            setDisplay(display === '0' ? val : display + val);
+            // Append numbers
+            if (display === '0' || display === 'Confirm' || display === 'Err: Match' || display === 'Err: Len < 4') {
+                setDisplay(val);
+            } else {
+                setDisplay(display + val);
+            }
         }
     };
 
@@ -36,7 +80,14 @@ const Calculator = () => {
     ];
 
     return (
-        <div className="flex flex-col items-center justify-end h-screen bg-black text-white pb-12">
+        <div className="flex flex-col items-center justify-end h-screen bg-black text-white pb-12 relative">
+            {/* Status Indicator for Setup Mode */}
+            {!profile && !user && !loading && (
+                <div className="absolute top-12 bg-gray-900 px-4 py-2 rounded-full text-xs text-gray-400 font-mono tracking-wider border border-gray-800">
+                    {setupState === 'init' ? 'SET NEW PIN' : 'CONFIRM PIN'}
+                </div>
+            )}
+
             {/* Display */}
             <div className="w-full max-w-xs px-4 mb-4 text-right">
                 <span className="text-6xl font-light">{display}</span>

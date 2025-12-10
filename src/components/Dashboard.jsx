@@ -1,16 +1,12 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import usePanic from '../hooks/usePanic';
 import { analyzeCrisis } from '../logic/LogicEngine';
 import { useStealthStore } from '../context/StealthContext';
+import { useAuth } from '../context/AuthContext';
 import { supabase } from '../services/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Lock, MessageCircle, AlertTriangle, Image as ImageIcon, Heart, X, BookOpen, Home, ChevronLeft, Send, Activity, Users, WifiOff } from 'lucide-react';
-
-// MOCK DATA: Pulse Engine
-const COMMUNITY_TRENDS = [
-    { category: 'NCII', alert: '⚠️ High reports of sextortion. Don’t delete chats.' },
-    { category: 'Blackmail', alert: '⚠️ Campus Alert: "Sponsor" blackmail wave detected.' }
-];
 
 // SAFETY GUIDES DICTIONARY
 const GUIDES = {
@@ -66,24 +62,93 @@ const OFFLINE_MODULES = [
 const Dashboard = () => {
     usePanic(); // Universal Panic Switch (Shake/Double ESC)
     const { toggleStealthMode, isStealthMode } = useStealthStore();
+    const { user } = useAuth(); // Get authenticated user for chat
     const [activeTab, setActiveTab] = useState('home');
 
     // Logic/Pulse State
     const [userInput, setUserInput] = useState('');
     const [recommendation, setRecommendation] = useState(null);
     const [selectedGuide, setSelectedGuide] = useState(null);
+    const [trends, setTrends] = useState([]); // Live trends from DB
+
+    // Effect: Fetch Trends
+    useEffect(() => {
+        const fetchTrends = async () => {
+            const { data } = await supabase
+                .from('community_trends')
+                .select('*')
+                .eq('is_active', true);
+            if (data) setTrends(data);
+        };
+        fetchTrends();
+    }, []);
 
     // LMS State
     const [learningModules, setLearningModules] = useState([]);
     const [isLoadingModules, setIsLoadingModules] = useState(false);
     const [isOffline, setIsOffline] = useState(false);
 
-    // MOCK DATA: Community Feed
-    const chats = [
-        { id: 1, name: "Brave Lioness", msg: "I finally blocked him on everything...", time: "15:43", unread: 0 },
-        { id: 2, name: "Hopeful Heart", msg: "Does anyone know how to report...", time: "15:29", unread: 0 },
-        { id: 3, name: "Warrior_01", msg: "Thanks for the advice yesterday!", time: "14:53", unread: 2 },
-    ];
+    // Chat State
+    const [chatMessages, setChatMessages] = useState([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [loadingChat, setLoadingChat] = useState(false);
+    const chatEndRef = useRef(null);
+
+    // Effect: Scroll to bottom on new message
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [chatMessages, activeTab]);
+
+    // Effect: Chat Subscription
+    useEffect(() => {
+        if (activeTab !== 'community') return;
+
+        setLoadingChat(true);
+
+        // 1. Fetch initial messages
+        const fetchMessages = async () => {
+            const { data, error } = await supabase
+                .from('messages')
+                .select('*')
+                .order('created_at', { ascending: true })
+                .limit(50);
+
+            if (!error && data) setChatMessages(data);
+            setLoadingChat(false);
+        };
+
+        fetchMessages();
+
+        // 2. Subscribe to new messages
+        const channel = supabase
+            .channel('public:messages')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+                setChatMessages((prev) => [...prev, payload.new]);
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [activeTab]);
+
+    const handleSendMessage = async () => {
+        if (!newMessage.trim() || !user) return;
+
+        const { error } = await supabase.from('messages').insert([
+            {
+                content: newMessage,
+                user_id: user.id,
+                display_name: 'Anonymous Survivor' // Could be randomized later
+            }
+        ]);
+
+        if (error) {
+            console.error('Error sending message:', error);
+        } else {
+            setNewMessage('');
+        }
+    };
 
     // Effect: Fetch LMS Modules when entering Learn tab
     useEffect(() => {
@@ -123,10 +188,10 @@ const Dashboard = () => {
         const analysis = analyzeCrisis(userInput);
 
         // Check against Community Trends
-        const trendMatch = COMMUNITY_TRENDS.find(t => t.category === analysis.primary_category);
+        const trendMatch = trends.find(t => t.category === analysis.primary_category);
 
         if (trendMatch) {
-            setRecommendation({ type: 'alert', msg: trendMatch.alert, category: analysis.primary_category });
+            setRecommendation({ type: 'alert', msg: trendMatch.alert_text, category: analysis.primary_category });
         } else {
             setRecommendation({ type: 'info', msg: `We hear you. Here is a guide for ${analysis.primary_category}.`, category: analysis.primary_category });
         }
@@ -238,24 +303,56 @@ const Dashboard = () => {
 
                     {/* --- COMMUNITY TAB --- */}
                     {activeTab === 'community' && (
-                        <motion.div key="community" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl mb-6 flex gap-3 text-rose-800">
+                        <motion.div key="community" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="h-full flex flex-col">
+                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl mb-4 flex gap-3 text-rose-800 shrink-0">
                                 <Users size={20} className="shrink-0" />
                                 <p className="text-xs font-medium">This space is anonymous. Your identity is hidden.</p>
                             </div>
-                            <div className="bg-white p-2 rounded-lg mb-4 flex gap-2 border border-gray-200">
-                                <input type="text" placeholder="Search Topics..." className="bg-transparent w-full text-sm outline-none px-2 text-gray-600" />
-                            </div>
-                            <div className="space-y-3 pb-20">
-                                {chats.map(chat => (
-                                    <div key={chat.id} className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 border border-gray-50 active:scale-[0.99] transition">
-                                        <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-pink-100 to-rose-100 flex items-center justify-center text-rose-400 font-bold text-lg">{chat.name[0]}</div>
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1"><h3 className="font-bold text-gray-800 text-sm">{chat.name}</h3><span className="text-xs text-gray-400">{chat.time}</span></div>
-                                            <p className="text-xs text-gray-500 truncate w-48">{chat.msg}</p>
+
+                            {/* Chat List */}
+                            <div className="flex-1 overflow-y-auto space-y-3 pb-20 scrollbar-hide">
+                                {loadingChat ? (
+                                    <div className="text-center text-gray-400 text-sm mt-10">Connecting to secure line...</div>
+                                ) : chatMessages.length === 0 ? (
+                                    <div className="text-center text-gray-400 text-sm mt-10">No messages yet. Be the first to share.</div>
+                                ) : (
+                                    chatMessages.map(msg => (
+                                        <div key={msg.id} className="bg-white p-4 rounded-xl shadow-sm flex items-start gap-3 border border-gray-50">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-100 to-rose-100 flex items-center justify-center text-rose-400 font-bold text-xs shrink-0">
+                                                {msg.display_name ? msg.display_name[0] : 'S'}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex justify-between items-baseline mb-1">
+                                                    <h3 className="font-bold text-gray-800 text-xs">{msg.display_name}</h3>
+                                                    <span className="text-[10px] text-gray-400">{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                </div>
+                                                <p className="text-sm text-gray-600 break-words">{msg.content}</p>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    ))
+                                )}
+                                <div ref={chatEndRef} />
+                            </div>
+
+                            {/* Input Area */}
+                            <div className="fixed bottom-[88px] left-0 w-full px-6 z-20">
+                                <div className="bg-white p-2 rounded-full shadow-lg border border-gray-100 flex gap-2 items-center px-4">
+                                    <input
+                                        type="text"
+                                        value={newMessage}
+                                        onChange={(e) => setNewMessage(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                        placeholder="Type safely..."
+                                        className="flex-1 bg-transparent text-sm outline-none text-gray-700 placeholder-gray-400 h-10"
+                                    />
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={!newMessage.trim()}
+                                        className="bg-rose-500 text-white p-2 rounded-full disabled:opacity-50 hover:bg-rose-600 transition"
+                                    >
+                                        <Send size={16} />
+                                    </button>
+                                </div>
                             </div>
                         </motion.div>
                     )}
@@ -344,11 +441,11 @@ const Dashboard = () => {
                                 </p>
 
                                 <div className="space-y-2">
-                                    {COMMUNITY_TRENDS.map((trend, idx) => (
+                                    {trends.length === 0 ? <p className="text-xs text-gray-400">No active trends detected.</p> : trends.map((trend, idx) => (
                                         <div key={idx} className="bg-white p-3 rounded-lg text-xs border border-indigo-100 shadow-sm flex items-start gap-2">
                                             <div className="w-1.5 h-1.5 rounded-full bg-red-500 mt-1 shrink-0 animate-pulse" />
                                             <div>
-                                                <span className="font-bold text-gray-800">{trend.category}:</span> {trend.alert}
+                                                <span className="font-bold text-gray-800">{trend.category}:</span> {trend.alert_text}
                                             </div>
                                         </div>
                                     ))}
